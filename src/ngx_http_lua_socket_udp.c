@@ -172,6 +172,7 @@ ngx_http_lua_socket_udp_setpeername(lua_State *L)
     ngx_http_lua_loc_conf_t     *llcf;
     int                          timeout;
     ngx_http_lua_co_ctx_t       *coctx;
+    u_char                       ipv6_buf[NGX_INET6_ADDRSTRLEN];
 
     ngx_http_lua_udp_connection_t           *uc;
     ngx_http_lua_socket_udp_upstream_t      *u;
@@ -301,6 +302,25 @@ ngx_http_lua_socket_udp_setpeername(lua_State *L)
     url.url.data = host.data;
     url.default_port = (in_port_t) port;
     url.no_resolve = 1;
+
+    /* IPv6? */
+    if (ngx_strlchr(url.url.data, url.url.data + url.url.len,
+                                ':') != NULL)
+    {
+        if (url.url.len + 2 > sizeof(ipv6_buf)) {
+
+            lua_pushfstring(L, "IPv6 resolver address is too long");
+
+            return 2;
+        }
+
+        ipv6_buf[0] = '[';
+        ngx_memcpy(ipv6_buf + 1, url.url.data, url.url.len);
+        ipv6_buf[url.url.len + 1] = ']';
+
+        url.url.data = ipv6_buf;
+        url.url.len = url.url.len + 2;
+    }
 
     if (ngx_parse_url(r->pool, &url) != NGX_OK) {
         lua_pushnil(L);
